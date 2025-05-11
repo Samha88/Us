@@ -3,8 +3,8 @@ import re
 import asyncio
 
 # -------- إعداداتك الشخصية --------
-api_id = 22707838  # ← حط الـ api_id تبعك
-api_hash = '7822c50291a41745fa5e0d63f21bbfb6'  # ← حط الـ api_hash تبعك
+api_id = 9844693  # ← حط الـ api_id تبعك
+api_hash = 'b9f99569919502974aedefbda38393a5'  # ← حط الـ api_hash تبعك
 session_name = 'us_session'
 channel_username = '@Ichancy_Usd'  # ← اسم القناة يلي تراقبها
 allowed_chat_ids = [7323006705]  # ← حط الuser_id تبعك هون (مو اسم المستخدم)
