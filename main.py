@@ -10,7 +10,7 @@ api_id = 9844693
 api_hash = 'b9f99569919502974aedefbda38393a5'
 session_name = 'us_session'
 channel_username = '@Ichancy_Usd'
-allowed_chat_ids = [7323006705]
+allowed_chat_ids = [7323006705]  # ← تأكد إنو ID تبعك هون
 
 # -------- regex --------
 code_pattern = re.compile(r'الكود الثالث\s*:\s*([A-Za-z0-9]{5,})', re.IGNORECASE)
@@ -36,7 +36,10 @@ def run_flask():
 async def command_handler(event):
     global is_active
 
+    print(f"وصلك أمر: {event.raw_text} من {event.chat_id}")  # ← هون نطبع الحدث و ID
+
     if event.chat_id not in allowed_chat_ids:
+        await event.reply("❌ انت مو من الأشخاص المسموحلهم.")
         return
 
     msg = event.raw_text.strip().lower()
@@ -50,6 +53,8 @@ async def command_handler(event):
     elif msg == '/status':
         status = "شغال ✅" if is_active else "موقف ⛔"
         await event.reply(f"الحالة الحالية: {status}")
+    else:
+        await event.reply("❓ أمر غير معروف.")
 
 @client.on(events.NewMessage(chats=channel_username))
 async def handler(event):
@@ -97,7 +102,5 @@ def run_telethon():
     loop.run_until_complete(client.run_until_disconnected())
 
 if __name__ == "__main__":
-    # شغل البوت بخيط
     threading.Thread(target=run_telethon).start()
-    # شغل السيرفر
     run_flask()
