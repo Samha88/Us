@@ -7,7 +7,7 @@ from aiohttp import web
 api_id = 9844693  # ← حط الـ api_id تبعك
 api_hash = 'b9f99569919502974aedefbda38393a5'  # ← حط الـ api_hash تبعك
 session_name = 'us_session'
-channel_username = '@Ichancy_Usd'  # ← اسم القناة يلي تراقبها
+channel_username = '@sam91uyy1'  # ← اسم القناة يلي تراقبها
 allowed_chat_ids = [7323006705]  # ← حط الuser_id تبعك هون
 
 # -------- متغيرات التحكم --------
