@@ -1,23 +1,37 @@
 from telethon import TelegramClient, events
 import re
 import asyncio
+import threading
+import os
+from flask import Flask
 
 # -------- إعداداتك الشخصية --------
-api_id = 9844693  # ← حط الـ api_id تبعك
-api_hash = 'b9f99569919502974aedefbda38393a5'  # ← حط الـ api_hash تبعك
+api_id = 9844693
+api_hash = 'b9f99569919502974aedefbda38393a5'
 session_name = 'us_session'
-channel_username = '@Ichancy_Usd'  # ← اسم القناة يلي تراقبها
-allowed_chat_ids = [7323006705]  # ← حط الuser_id تبعك هون (مو اسم المستخدم)
-
-# -------- متغيرات التحكم --------
-client = TelegramClient(session_name, api_id, api_hash)
-is_active = True  # الحالة: شغال / موقف
+channel_username = '@Ichancy_Usd'
+allowed_chat_ids = [7323006705]
 
 # -------- regex --------
 code_pattern = re.compile(r'الكود الثالث\s*:\s*([A-Za-z0-9]{5,})', re.IGNORECASE)
 bot_link_pattern = re.compile(r'رابط البوت\s*:\s*(https?://t\.me/\S+)', re.IGNORECASE)
 
-# -------- التحكم اليدوي --------
+# -------- الحالة --------
+client = TelegramClient(session_name, api_id, api_hash)
+is_active = True
+
+# -------- Web Server لإرضاء Render --------
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "✅ البوت شغال على Render بدون مشاكل"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+
+# -------- Telethon Handlers --------
 @client.on(events.NewMessage)
 async def command_handler(event):
     global is_active
@@ -37,14 +51,12 @@ async def command_handler(event):
         status = "شغال ✅" if is_active else "موقف ⛔"
         await event.reply(f"الحالة الحالية: {status}")
 
-# -------- المراقبة التلقائية للقناة --------
 @client.on(events.NewMessage(chats=channel_username))
 async def handler(event):
     if not is_active:
         return
 
     text = event.raw_text
-
     code_match = code_pattern.search(text)
     link_match = bot_link_pattern.search(text)
 
@@ -76,10 +88,16 @@ async def handler(event):
     except Exception as e:
         print(f"❌ خطأ أثناء تنفيذ العملية: {e}")
 
-# -------- تشغيل العميل --------
-async def main():
-    await client.start()
+# -------- التشغيل --------
+def run_telethon():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(client.start())
     print("✅ البوت شغال ومترقب...")
-    await client.run_until_disconnected()
+    loop.run_until_complete(client.run_until_disconnected())
 
-asyncio.run(main())
+if __name__ == "__main__":
+    # شغل البوت بخيط
+    threading.Thread(target=run_telethon).start()
+    # شغل السيرفر
+    run_flask()
