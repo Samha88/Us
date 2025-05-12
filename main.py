@@ -1,128 +1,102 @@
-import asyncio
-import re
 from telethon import TelegramClient, events
+import re
+import asyncio
 from aiohttp import web
 
-# معلومات حساب تيليجرام
-api_id = 29721100
-api_hash = '8e084daf57bd8ed1f6aded90f6ce4dac'
-session_name = 'my_session'
+# -------- إعداداتك الشخصية --------
+api_id = 9844693  # ← حط الـ api_id تبعك
+api_hash = 'b9f99569919502974aedefbda38393a5'  # ← حط الـ api_hash تبعك
+session_name = 'us_session'
+channel_username = '@Ichancy_Usd'  # ← اسم القناة يلي تراقبها
+allowed_chat_ids = [7323006705]  # ← حط الuser_id تبعك هون
 
-# معرف المستخدم المسموح له بالتفاعل مع البوت
-allowed_chat_ids = {6431789509}  # ← معرفك الشخصي
-
-# تعريف القنوات والصيغ والبوتات
-channels_config = {
-    "ichancy_saw": {
-        "username": "ichancy_saw",
-        "regex": r"\b[a-zA-Z0-9]{8,12}\b",
-        "bot": "@ichancy_saw_bot"
-    },
-    "ichancyTheKing": {
-        "username": "ichancyTheKing",
-        "regex": r"\b[a-zA-Z0-9]{5,}\b",
-        "bot": "@Ichancy_TheKingBot"
-    },
-    "captain_ichancy": {
-        "username": "captain_ichancy",
-        "regex": r"\b[a-zA-Z0-9]{6,12}\b",
-        "bot": "@ichancy_captain_bot",
-        "pick_third": True
-    },
-}
-
-# تهيئة العميل
+# -------- متغيرات التحكم --------
 client = TelegramClient(session_name, api_id, api_hash)
-selected_channels = set()
-monitoring_active = False
+is_active = True  # الحالة: شغال / موقف
 
-# /start - إرسال التعليمات
-@client.on(events.NewMessage(pattern='/start'))
-async def start_handler(event):
-    if event.chat_id not in allowed_chat_ids:
-        return
-    await event.respond(
-        "مرحباً! أرسل أسماء القنوات التي تريد مراقبتها، مفصولة بفاصلة.\n"
-        "مثال:\n"
-        "ichancy_saw, ichancyTheKing\n\n"
-        "ثم أرسل كلمة 's' لبدء المراقبة، أو 'st' لإيقافها."
-    )
+# -------- regex --------
+code_pattern = re.compile(r'الكود الثالث\s*:\s*([A-Za-z0-9]{5,})', re.IGNORECASE)
+bot_link_pattern = re.compile(r'رابط البوت\s*:\s*(https?://t\.me/\S+)', re.IGNORECASE)
 
-# استقبال أوامر المستخدم
+# -------- التحكم اليدوي --------
 @client.on(events.NewMessage)
-async def handle_user_commands(event):
-    global selected_channels, monitoring_active
+async def command_handler(event):
+    global is_active
 
     if event.chat_id not in allowed_chat_ids:
         return
 
-    message = event.raw_text.strip()
+    msg = event.raw_text.strip().lower()
 
-    if message.startswith('/'):
+    if msg == '/start_bot':
+        is_active = True
+        await event.reply("✅ تم تفعيل البوت ومراقبة القناة.")
+    elif msg == '/stop_bot':
+        is_active = False
+        await event.reply("⛔ تم إيقاف مراقبة القناة.")
+    elif msg == '/status':
+        status = "شغال ✅" if is_active else "موقف ⛔"
+        await event.reply(f"الحالة الحالية: {status}")
+
+# -------- المراقبة التلقائية للقناة --------
+@client.on(events.NewMessage(chats=channel_username))
+async def handler(event):
+    if not is_active:
         return
 
-    if message.lower() == "s":
-        if not selected_channels:
-            await event.respond("الرجاء اختيار القنوات أولاً.")
-            return
-        monitoring_active = True
-        await event.respond("تم تفعيل المراقبة.")
+    text = event.raw_text
 
-    elif message.lower() == "st":
-        selected_channels.clear()
-        monitoring_active = False
-        await event.respond("تم إيقاف المراقبة.")
+    code_match = code_pattern.search(text)
+    link_match = bot_link_pattern.search(text)
 
-    else:
-        possible_channels = [name.strip() for name in message.split(',')]
-        if all(name in channels_config for name in possible_channels):
-            selected_channels = set(possible_channels)
-            await event.respond(f"تم اختيار القنوات: {', '.join(selected_channels)}")
-        else:
-            await event.respond("بعض القنوات غير صحيحة، تأكد من كتابتها بشكل دقيق.")
-
-# مراقبة رسائل القنوات
-@client.on(events.NewMessage)
-async def monitor_handler(event):
-    global monitoring_active
-    if not monitoring_active:
+    if not code_match or not link_match:
+        print("ما تم العثور على الكود أو رابط البوت.")
         return
 
-    for channel_name in selected_channels:
-        config = channels_config[channel_name]
-        if event.chat.username != config["username"]:
-            continue
+    code = code_match.group(1).strip()
+    bot_link = link_match.group(1).strip()
+    bot_username = bot_link.split('/')[-1]
 
-        match = re.findall(config["regex"], event.message.message)
-        if match:
-            # التعديل هنا: أخذ أول كود فقط
-            if config.get("pick_third") and len(match) >= 3:
-                code = match[2]
-            else:
-                code = match[0]
-            await client.send_message(config["bot"], code)
-            print(f"أُرسل الكود: {code} إلى {config['bot']}")
-            break
+    print(f"إرسال الكود [{code}] للبوت @{bot_username}")
 
-# Web service للتأكد أن السيرفر شغال
+    try:
+        await client.send_message(bot_username, '/start')
+        await asyncio.sleep(2)
+
+        msgs = await client.get_messages(bot_username, limit=1)
+        if msgs and msgs[0].buttons:
+            for row in msgs[0].buttons:
+                for button in row:
+                    if 'كود' in button.text:
+                        await button.click()
+                        await asyncio.sleep(1)
+                        await client.send_message(bot_username, code)
+                        print("✅ تم إرسال الكود بنجاح.")
+                        return
+        print("لم يتم العثور على زر فيه كلمة 'كود'")
+    except Exception as e:
+        print(f"❌ خطأ أثناء تنفيذ العملية: {e}")
+
+# -------- سيرفر ويب للتأكد من أن البوت شغال --------
 async def handle(request):
-    return web.Response(text="Bot is running!")
+    return web.Response(text="Gift Code Bot is running!")
 
 app = web.Application()
 app.router.add_get("/", handle)
 
-# تشغيل البوت والسيرفر
+# -------- تشغيل البوت والسيرفر معًا --------
 async def start_all():
     await client.start()
-    print("Bot is running...")
-    client_loop = asyncio.create_task(client.run_until_disconnected())
+    print("✅ البوت شغال ومترقب...")
+
+    client_task = asyncio.create_task(client.run_until_disconnected())
 
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', 8080)
     await site.start()
-    print("Web server is running on http://0.0.0.0:8080")
-    await client_loop
+    print("🌐 Web server running on http://0.0.0.0:8080")
 
-if __name__ == "__main__":
-    asyncio.run(start_all())
+    await client_task
+
+asyncio.run(start_all())
